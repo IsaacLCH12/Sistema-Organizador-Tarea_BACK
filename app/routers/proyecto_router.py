@@ -1,3 +1,4 @@
+import uuid  
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -8,10 +9,12 @@ router = APIRouter(prefix="/proyectos", tags=["Módulo de Proyectos"])
 
 @router.post("/", response_model=ProyectoResponse)
 def crear_proyecto(proyecto: ProyectoCreate, db: Session = Depends(get_db)):
+    
+    codigo_generado = str(uuid.uuid4())[:8].upper()
     nuevo_proyecto = ProyectoModel(
         nombre=proyecto.nombre,
         descripcion=proyecto.descripcion,
-        codigoInvitacion=proyecto.codigoInvitacion
+        codigoInvitacion=codigo_generado
     )
     db.add(nuevo_proyecto)
     db.commit()

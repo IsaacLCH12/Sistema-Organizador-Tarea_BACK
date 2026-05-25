@@ -1,3 +1,4 @@
+
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
@@ -23,7 +24,7 @@ class TareaResponse(BaseModel):
 class ProyectoCreate(BaseModel):
     nombre: str
     descripcion: Optional[str] = None
-    codigoInvitacion: str
+    
 
 class ProyectoResponse(BaseModel):
     idProyecto: int
