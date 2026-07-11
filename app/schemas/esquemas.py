@@ -60,3 +60,14 @@ class UnirseProyecto(BaseModel):
 # Esquema para MOVER LA TAREA (Kanban)
 class ActualizarEstadoTarea(BaseModel):
     estado: str  # Ej: "In Progress", "Review", "Done"
+
+# Esquema para LISTAR MIEMBROS
+class MiembroEquipoResponse(BaseModel):
+    idMiembroEquipo: int
+    idUsuario: int
+    idProyecto: int
+    rolPermiso: str
+    rolFuncional: str
+    tareasActivas: int
+    
+    model_config = ConfigDict(from_attributes=True)

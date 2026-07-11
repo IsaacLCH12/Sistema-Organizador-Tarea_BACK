@@ -4,8 +4,9 @@ from app.core.database import get_db
 from app.models.modelo_bd import TareaModel, MiembroEquipoModel
 from app.schemas.esquemas import TareaCreate, TareaResponse
 from app.schemas.esquemas import ActualizarEstadoTarea
+from app.core.security import verificar_token, TokenData
 
-router = APIRouter(prefix="/tareas", tags=["Módulo de Tareas"])
+router = APIRouter(prefix="/tareas", tags=["Módulo de Tareas"], dependencies=[Depends(verificar_token)])
 
 @router.post("/", response_model=TareaResponse)
 def crear_tarea(tarea: TareaCreate, db: Session = Depends(get_db)):
@@ -60,5 +61,10 @@ def mover_tarea_kanban(idTarea: int, datos: ActualizarEstadoTarea, db: Session =
     db.commit()
     
     return {"mensaje": f"Tarea movida a la columna: {datos.estado}"}
+
+@router.get("/proyecto/{idProyecto}", response_model=list[TareaResponse])
+def listar_tareas_proyecto(idProyecto: int, db: Session = Depends(get_db)):
+    tareas = db.query(TareaModel).filter(TareaModel.idProyecto == idProyecto).all()
+    return tareas
 
 

@@ -29,6 +29,8 @@ def registrar_usuario(usuario: UsuarioCreate, db: Session = Depends(get_db)):
     db.refresh(nuevo_usuario)
     return nuevo_usuario
 
+from app.core.security import crear_access_token
+
 @router.post("/login")
 def login(credenciales: LoginRequest, db: Session = Depends(get_db)):
     # 1. Buscar al usuario
@@ -38,8 +40,15 @@ def login(credenciales: LoginRequest, db: Session = Depends(get_db)):
     if not usuario or usuario.contrasena != encriptar_password(credenciales.contrasena):
         raise HTTPException(status_code=401, detail="Correo o contraseña incorrectos")
         
+    # 3. Generar token JWT
+    access_token = crear_access_token(
+        data={"idUsuario": usuario.idUsuario, "correo": usuario.correo}
+    )
+    
     return {
         "mensaje": "Login exitoso",
+        "access_token": access_token,
+        "token_type": "bearer",
         "usuario": {
             "idUsuario": usuario.idUsuario,
             "nombre": usuario.nombre,

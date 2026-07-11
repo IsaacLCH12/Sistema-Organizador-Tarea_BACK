@@ -3,9 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.modelo_bd import ProyectoModel, MiembroEquipoModel
-from app.schemas.esquemas import ProyectoCreate, ProyectoResponse, UnirseProyecto
+from app.schemas.esquemas import ProyectoCreate, ProyectoResponse, UnirseProyecto, MiembroEquipoResponse
+from app.core.security import verificar_token, TokenData
 
-router = APIRouter(prefix="/proyectos", tags=["Módulo de Proyectos"])
+router = APIRouter(prefix="/proyectos", tags=["Módulo de Proyectos"], dependencies=[Depends(verificar_token)])
 
 @router.post("/", response_model=ProyectoResponse)
 def crear_proyecto(proyecto: ProyectoCreate, db: Session = Depends(get_db)):
@@ -61,3 +62,8 @@ def unirse_a_proyecto(datos: UnirseProyecto, db: Session = Depends(get_db)):
         
     db.commit()
     return {"mensaje": "Te has unido al proyecto exitosamente", "idProyecto": proyecto.idProyecto}
+
+@router.get("/{idProyecto}/miembros", response_model=list[MiembroEquipoResponse])
+def listar_miembros_proyecto(idProyecto: int, db: Session = Depends(get_db)):
+    miembros = db.query(MiembroEquipoModel).filter(MiembroEquipoModel.idProyecto == idProyecto).all()
+    return miembros
