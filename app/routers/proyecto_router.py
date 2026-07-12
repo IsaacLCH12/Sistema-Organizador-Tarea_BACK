@@ -9,7 +9,7 @@ from app.core.security import verificar_token, TokenData
 router = APIRouter(prefix="/proyectos", tags=["Módulo de Proyectos"], dependencies=[Depends(verificar_token)])
 
 @router.post("/", response_model=ProyectoResponse)
-def crear_proyecto(proyecto: ProyectoCreate, db: Session = Depends(get_db)):
+def crear_proyecto(proyecto: ProyectoCreate, current_user: TokenData = Depends(verificar_token), db: Session = Depends(get_db)):
     
     codigo_generado = str(uuid.uuid4())[:8].upper()
     nuevo_proyecto = ProyectoModel(
@@ -20,11 +20,27 @@ def crear_proyecto(proyecto: ProyectoCreate, db: Session = Depends(get_db)):
     db.add(nuevo_proyecto)
     db.commit()
     db.refresh(nuevo_proyecto)
+
+    # Añadir automáticamente al creador como Líder
+    nuevo_miembro = MiembroEquipoModel(
+        idUsuario=current_user.idUsuario,
+        idProyecto=nuevo_proyecto.idProyecto,
+        rolPermiso="Líder / Creador",
+        rolFuncional="Scrum Master" # Por defecto
+    )
+    db.add(nuevo_miembro)
+    db.commit()
+    
     return nuevo_proyecto
 
 @router.get("/", response_model=list[ProyectoResponse])
-def listar_proyectos(db: Session = Depends(get_db)):
-    proyectos = db.query(ProyectoModel).all()
+def listar_proyectos(current_user: TokenData = Depends(verificar_token), db: Session = Depends(get_db)):
+    # Solo traer los proyectos donde el usuario actual sea miembro
+    proyectos = db.query(ProyectoModel).join(
+        MiembroEquipoModel, ProyectoModel.idProyecto == MiembroEquipoModel.idProyecto
+    ).filter(
+        MiembroEquipoModel.idUsuario == current_user.idUsuario
+    ).all()
     return proyectos
 
 @router.post("/unirse")
