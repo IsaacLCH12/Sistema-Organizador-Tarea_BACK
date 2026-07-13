@@ -73,7 +73,7 @@ def unirse_a_proyecto(datos: UnirseProyecto, db: Session = Depends(get_db)):
     db.add(nuevo_miembro)
     
     # Actualizar estado del proyecto si ya son 3 o más
-    if total_miembros + 1 >= 3:
+    if total_miembros + 1 >= 2:
         proyecto.estado = "En desarrollo"
         
     db.commit()
