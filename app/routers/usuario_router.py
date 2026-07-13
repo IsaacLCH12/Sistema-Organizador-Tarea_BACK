@@ -111,6 +111,12 @@ def actualizar_perfil(datos: ActualizarPerfil, current_user: TokenData = Depends
     
     if datos.nombre:
         usuario.nombre = datos.nombre
+    if datos.correo:
+        # Verificar que el nuevo correo no esté tomado por otro usuario
+        existe = db.query(UsuarioModel).filter(UsuarioModel.correo == datos.correo, UsuarioModel.idUsuario != usuario.idUsuario).first()
+        if existe:
+            raise HTTPException(status_code=400, detail="Este correo ya está en uso por otra cuenta")
+        usuario.correo = datos.correo
     if datos.contrasena:
         usuario.contrasena = encriptar_password(datos.contrasena)
     

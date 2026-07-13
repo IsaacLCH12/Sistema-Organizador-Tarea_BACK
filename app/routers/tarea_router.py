@@ -25,13 +25,10 @@ def es_lider(db: Session, idUsuario: int, idProyecto: int) -> bool:
     ).first()
     return miembro and 'Líder' in miembro.rolPermiso
 
-# POST /tareas/ - Crear tarea (solo líder)
+# POST /tareas/ - Crear tarea (cualquier miembro)
 @router.post("/", response_model=TareaResponse)
 def crear_tarea(tarea: TareaCreate, current_user: TokenData = Depends(verificar_token), db: Session = Depends(get_db)):
-    # Validar que sea líder
-    if not es_lider(db, current_user.idUsuario, tarea.idProyecto):
-        raise HTTPException(status_code=403, detail="Solo el líder del proyecto puede crear tareas")
-    
+
     nueva_tarea = TareaModel(
         idProyecto=tarea.idProyecto,
         titulo=tarea.titulo,

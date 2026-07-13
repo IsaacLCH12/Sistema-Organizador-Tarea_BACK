@@ -147,6 +147,7 @@ class PerfilResponse(BaseModel):
 
 class ActualizarPerfil(BaseModel):
     nombre: Optional[str] = None
+    correo: Optional[str] = None
     contrasena: Optional[str] = None
 
 # ==================== UNIRSE A PROYECTO ====================
