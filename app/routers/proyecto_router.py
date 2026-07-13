@@ -2,7 +2,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.models.modelo_bd import ProyectoModel, MiembroEquipoModel
+from app.models.modelo_bd import ProyectoModel, MiembroEquipoModel, UsuarioModel, TareaModel
 from app.schemas.esquemas import ProyectoCreate, ProyectoResponse, UnirseProyecto, MiembroEquipoResponse
 from app.core.security import verificar_token, TokenData
 
@@ -72,7 +72,7 @@ def unirse_a_proyecto(datos: UnirseProyecto, db: Session = Depends(get_db)):
     )
     db.add(nuevo_miembro)
     
-    # Actualizar estado del proyecto si ya son 3 o más
+    # Actualizar estado del proyecto si ya son 2 o más
     if total_miembros + 1 >= 2:
         proyecto.estado = "En desarrollo"
         
@@ -82,4 +82,52 @@ def unirse_a_proyecto(datos: UnirseProyecto, db: Session = Depends(get_db)):
 @router.get("/{idProyecto}/miembros", response_model=list[MiembroEquipoResponse])
 def listar_miembros_proyecto(idProyecto: int, db: Session = Depends(get_db)):
     miembros = db.query(MiembroEquipoModel).filter(MiembroEquipoModel.idProyecto == idProyecto).all()
-    return miembros
+    
+    # Enriquecer con nombres de usuario
+    resultado = []
+    for m in miembros:
+        usuario = db.query(UsuarioModel).filter(UsuarioModel.idUsuario == m.idUsuario).first()
+        resp = MiembroEquipoResponse.model_validate(m)
+        resp.nombreUsuario = usuario.nombre if usuario else "Desconocido"
+        resultado.append(resp)
+    
+    return resultado
+
+# DELETE /proyectos/{idProyecto}/miembros/{idMiembroEquipo} - Eliminar miembro (solo líder)
+@router.delete("/{idProyecto}/miembros/{idMiembroEquipo}")
+def eliminar_miembro(idProyecto: int, idMiembroEquipo: int, current_user: TokenData = Depends(verificar_token), db: Session = Depends(get_db)):
+    # Verificar que el usuario actual sea líder del proyecto
+    lider = db.query(MiembroEquipoModel).filter(
+        MiembroEquipoModel.idUsuario == current_user.idUsuario,
+        MiembroEquipoModel.idProyecto == idProyecto
+    ).first()
+    
+    if not lider or 'Líder' not in lider.rolPermiso:
+        raise HTTPException(status_code=403, detail="Solo el líder puede eliminar miembros del proyecto")
+    
+    # Buscar al miembro a eliminar
+    miembro = db.query(MiembroEquipoModel).filter(
+        MiembroEquipoModel.idMiembroEquipo == idMiembroEquipo,
+        MiembroEquipoModel.idProyecto == idProyecto
+    ).first()
+    
+    if not miembro:
+        raise HTTPException(status_code=404, detail="Miembro no encontrado en este proyecto")
+    
+    # No se puede eliminar al líder
+    if 'Líder' in miembro.rolPermiso:
+        raise HTTPException(status_code=400, detail="No se puede eliminar al líder del proyecto")
+    
+    # Desasignar tareas del miembro
+    tareas_asignadas = db.query(TareaModel).filter(
+        TareaModel.idMiembroEquipo == idMiembroEquipo,
+        TareaModel.estado != "Done"
+    ).all()
+    for t in tareas_asignadas:
+        t.idMiembroEquipo = None
+        t.estado = "To Do"
+    
+    db.delete(miembro)
+    db.commit()
+    return {"mensaje": "Miembro eliminado del proyecto correctamente"}
+

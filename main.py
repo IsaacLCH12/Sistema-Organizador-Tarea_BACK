@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import engine, Base
 import app.models.modelo_bd
-from app.routers import tarea_router, proyecto_router, usuario_router
+from app.routers import tarea_router, proyecto_router, usuario_router, comentario_router, actividad_router
 
 #se lee todas los modelos y crea las tablas en postgreSQL automaticamente
 Base.metadata.create_all(bind=engine)
@@ -11,7 +11,7 @@ Base.metadata.create_all(bind=engine)
 app= FastAPI(
     title="StudyFlow API",
     description="Backend para el gestor de tareas universitarias",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 #Configuracion de CORS para permitir el front
@@ -33,6 +33,8 @@ app.add_middleware(
 app.include_router(usuario_router.router)
 app.include_router(proyecto_router.router)
 app.include_router(tarea_router.router)
+app.include_router(comentario_router.router)
+app.include_router(actividad_router.router)
 
 # prueba endpoint
 @app.get ("/", tags=["Estado del Servidor"])
