@@ -113,7 +113,7 @@ def eliminar_miembro(idProyecto: int, idMiembroEquipo: int, current_user: TokenD
         MiembroEquipoModel.idProyecto == idProyecto
     ).first()
     
-    if not lider or 'Líder' not in lider.rolPermiso:
+    if not lider or ('Líder' not in lider.rolPermiso and 'Líder' not in lider.rolFuncional):
         raise HTTPException(status_code=403, detail="Solo el líder puede eliminar miembros del proyecto")
     
     # Buscar al miembro a eliminar
@@ -126,7 +126,7 @@ def eliminar_miembro(idProyecto: int, idMiembroEquipo: int, current_user: TokenD
         raise HTTPException(status_code=404, detail="Miembro no encontrado en este proyecto")
     
     # No se puede eliminar al líder
-    if 'Líder' in miembro.rolPermiso:
+    if 'Líder' in miembro.rolPermiso or 'Líder' in miembro.rolFuncional:
         raise HTTPException(status_code=400, detail="No se puede eliminar al líder del proyecto")
     
     # Desasignar tareas del miembro
@@ -154,8 +154,8 @@ def eliminar_proyecto(idProyecto: int, current_user: TokenData = Depends(verific
         MiembroEquipoModel.idProyecto == idProyecto
     ).first()
     
-    if not lider or 'Líder' not in lider.rolPermiso:
-        raise HTTPException(status_code=403, detail="Solo el líder del proyecto puede eliminarlo")
+    if not lider or ('Líder' not in lider.rolPermiso and 'Líder' not in lider.rolFuncional):
+        raise HTTPException(status_code=403, detail="Solo el líder del proyecto puede realizar esta acción")
         
     # Eliminar tareas asociadas
     db.query(TareaModel).filter(TareaModel.idProyecto == idProyecto).delete()
