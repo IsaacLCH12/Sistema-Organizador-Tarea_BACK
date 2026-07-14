@@ -71,15 +71,14 @@ def editar_tarea(idTarea: int, datos: TareaUpdate, current_user: TokenData = Dep
     if not tarea:
         raise HTTPException(status_code=404, detail="Tarea no encontrada")
     
-    # Verificar permisos: líder o asignado
-    es_lider_usuario = es_lider(db, current_user.idUsuario, tarea.idProyecto)
-    es_asignado = False
-    if tarea.idMiembroEquipo:
-        miembro_asignado = db.query(MiembroEquipoModel).filter(MiembroEquipoModel.idMiembroEquipo == tarea.idMiembroEquipo).first()
-        es_asignado = miembro_asignado and miembro_asignado.idUsuario == current_user.idUsuario
+    # Verificar permisos: cualquier miembro del proyecto puede editar (estilo Jira)
+    es_miembro = db.query(MiembroEquipoModel).filter(
+        MiembroEquipoModel.idProyecto == tarea.idProyecto,
+        MiembroEquipoModel.idUsuario == current_user.idUsuario
+    ).first()
     
-    if not es_lider_usuario and not es_asignado:
-        raise HTTPException(status_code=403, detail="No tienes permisos para editar esta tarea")
+    if not es_miembro:
+        raise HTTPException(status_code=403, detail="No tienes permisos para editar esta tarea porque no eres miembro del proyecto")
     
     # Aplicar cambios y registrar actividad para cada campo modificado
     cambios = []
