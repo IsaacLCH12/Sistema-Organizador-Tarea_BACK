@@ -92,15 +92,14 @@ class TareaUpdate(BaseModel):
     @field_validator('fechaLimite')
     @classmethod
     def validar_fecha(cls, v):
-        if v is not None and v < date.today():
-            raise ValueError("La fecha límite debe ser hoy o una fecha futura")
+        # Al editar, permitimos cualquier fecha (puede ser que la tarea ya esté en progreso)
         return v
 
     @field_validator('puntosHistoria')
     @classmethod
     def validar_puntos(cls, v):
-        if v is not None and v not in [1, 2, 3, 5, 8, 13]:
-            raise ValueError("Los puntos de historia deben ser: 1, 2, 3, 5, 8, 13")
+        if v is not None and v <= 0:
+            raise ValueError("Los puntos de historia deben ser un número positivo")
         return v
 
 # ==================== PROYECTOS ====================
