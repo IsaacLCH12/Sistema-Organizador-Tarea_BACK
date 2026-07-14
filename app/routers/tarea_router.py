@@ -25,9 +25,12 @@ def es_lider(db: Session, idUsuario: int, idProyecto: int) -> bool:
     ).first()
     return miembro and 'Líder' in miembro.rolPermiso
 
-# POST /tareas/ - Crear tarea (cualquier miembro)
+# POST /tareas/ - Crear tarea (solo líder)
 @router.post("/", response_model=TareaResponse)
 def crear_tarea(tarea: TareaCreate, current_user: TokenData = Depends(verificar_token), db: Session = Depends(get_db)):
+    
+    if not es_lider(db, current_user.idUsuario, tarea.idProyecto):
+        raise HTTPException(status_code=403, detail="Solo el líder del proyecto puede crear tareas")
 
     nueva_tarea = TareaModel(
         idProyecto=tarea.idProyecto,
@@ -64,21 +67,15 @@ def listar_tareas_proyecto(idProyecto: int, db: Session = Depends(get_db)):
     tareas = db.query(TareaModel).filter(TareaModel.idProyecto == idProyecto).all()
     return tareas
 
-# PUT /tareas/{idTarea} - Editar tarea (solo líder o asignado)
+# PUT /tareas/{idTarea} - Editar tarea (solo líder)
 @router.put("/{idTarea}", response_model=TareaResponse)
 def editar_tarea(idTarea: int, datos: TareaUpdate, current_user: TokenData = Depends(verificar_token), db: Session = Depends(get_db)):
     tarea = db.query(TareaModel).filter(TareaModel.idTarea == idTarea).first()
     if not tarea:
         raise HTTPException(status_code=404, detail="Tarea no encontrada")
     
-    # Verificar permisos: cualquier miembro del proyecto puede editar (estilo Jira)
-    es_miembro = db.query(MiembroEquipoModel).filter(
-        MiembroEquipoModel.idProyecto == tarea.idProyecto,
-        MiembroEquipoModel.idUsuario == current_user.idUsuario
-    ).first()
-    
-    if not es_miembro:
-        raise HTTPException(status_code=403, detail="No tienes permisos para editar esta tarea porque no eres miembro del proyecto")
+    if not es_lider(db, current_user.idUsuario, tarea.idProyecto):
+        raise HTTPException(status_code=403, detail="Solo el líder del proyecto puede editar los detalles de la tarea")
     
     # Aplicar cambios y registrar actividad para cada campo modificado
     cambios = []
