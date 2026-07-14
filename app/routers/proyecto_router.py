@@ -11,6 +11,17 @@ router = APIRouter(prefix="/proyectos", tags=["Módulo de Proyectos"], dependenc
 @router.post("/", response_model=ProyectoResponse)
 def crear_proyecto(proyecto: ProyectoCreate, current_user: TokenData = Depends(verificar_token), db: Session = Depends(get_db)):
     
+    # 1. Verificar si el usuario ya tiene un proyecto con este nombre exacto
+    proyecto_duplicado = db.query(ProyectoModel).join(
+        MiembroEquipoModel, ProyectoModel.idProyecto == MiembroEquipoModel.idProyecto
+    ).filter(
+        MiembroEquipoModel.idUsuario == current_user.idUsuario,
+        ProyectoModel.nombre == proyecto.nombre
+    ).first()
+    
+    if proyecto_duplicado:
+        raise HTTPException(status_code=400, detail="Ya tienes un proyecto creado con este nombre exacto")
+
     codigo_generado = str(uuid.uuid4())[:8].upper()
     nuevo_proyecto = ProyectoModel(
         nombre=proyecto.nombre,
@@ -26,7 +37,7 @@ def crear_proyecto(proyecto: ProyectoCreate, current_user: TokenData = Depends(v
         idUsuario=current_user.idUsuario,
         idProyecto=nuevo_proyecto.idProyecto,
         rolPermiso="Líder / Creador",
-        rolFuncional="Scrum Master" # Por defecto
+        rolFuncional="Gestor de Proyecto" # Por defecto
     )
     db.add(nuevo_miembro)
     db.commit()
@@ -130,4 +141,31 @@ def eliminar_miembro(idProyecto: int, idMiembroEquipo: int, current_user: TokenD
     db.delete(miembro)
     db.commit()
     return {"mensaje": "Miembro eliminado del proyecto correctamente"}
+
+# DELETE /proyectos/{idProyecto} - Eliminar un proyecto (solo líder)
+@router.delete("/{idProyecto}")
+def eliminar_proyecto(idProyecto: int, current_user: TokenData = Depends(verificar_token), db: Session = Depends(get_db)):
+    proyecto = db.query(ProyectoModel).filter(ProyectoModel.idProyecto == idProyecto).first()
+    if not proyecto:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+        
+    lider = db.query(MiembroEquipoModel).filter(
+        MiembroEquipoModel.idUsuario == current_user.idUsuario,
+        MiembroEquipoModel.idProyecto == idProyecto
+    ).first()
+    
+    if not lider or 'Líder' not in lider.rolPermiso:
+        raise HTTPException(status_code=403, detail="Solo el líder del proyecto puede eliminarlo")
+        
+    # Eliminar tareas asociadas
+    db.query(TareaModel).filter(TareaModel.idProyecto == idProyecto).delete()
+    
+    # Eliminar miembros asociados
+    db.query(MiembroEquipoModel).filter(MiembroEquipoModel.idProyecto == idProyecto).delete()
+    
+    # Eliminar el proyecto
+    db.delete(proyecto)
+    db.commit()
+    
+    return {"mensaje": "Proyecto eliminado correctamente"}
 
