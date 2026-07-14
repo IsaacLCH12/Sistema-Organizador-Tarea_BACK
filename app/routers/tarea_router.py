@@ -135,27 +135,44 @@ def asignar_tarea(idTarea: int, idMiembroEquipo: int, current_user: TokenData = 
     if not tarea:
         raise HTTPException(status_code=404, detail="Tarea no encontrada")
     
-    if tarea.idMiembroEquipo is not None:
-        raise HTTPException(status_code=400, detail="Esta tarea ya está asignada a un miembro")
+    if idMiembroEquipo == 0:
+        if tarea.idMiembroEquipo is not None:
+            if tarea.estado != "Done":
+                miembro_previo = db.query(MiembroEquipoModel).filter(MiembroEquipoModel.idMiembroEquipo == tarea.idMiembroEquipo).first()
+                if miembro_previo and miembro_previo.tareasActivas > 0:
+                    miembro_previo.tareasActivas -= 1
+            tarea.idMiembroEquipo = None
+            if tarea.estado != "Done":
+                tarea.estado = "To Do"
+            registrar_actividad(db, idTarea, current_user.idUsuario, "desasignó la tarea", None)
+            db.commit()
+        return {"mensaje": "Tarea desasignada correctamente"}
 
     miembro = db.query(MiembroEquipoModel).filter(MiembroEquipoModel.idMiembroEquipo == idMiembroEquipo).first()
     if not miembro:
         raise HTTPException(status_code=404, detail="Miembro no encontrado")
 
-    # REGLA: Máximo 2 tareas activas
-    if miembro.tareasActivas >= 2:
-        raise HTTPException(status_code=400, detail="Sobrecarga laboral: Ya tienes el máximo de tareas activas (2)")
+    if tarea.idMiembroEquipo != idMiembroEquipo:
+        if miembro.tareasActivas >= 2:
+            raise HTTPException(status_code=400, detail="Sobrecarga laboral: El miembro ya tiene el máximo de tareas activas (2)")
 
-    tarea.idMiembroEquipo = idMiembroEquipo
-    tarea.estado = "In Progress"
-    miembro.tareasActivas += 1
-    
-    # Obtener nombre del miembro para el historial
-    usuario = db.query(UsuarioModel).filter(UsuarioModel.idUsuario == miembro.idUsuario).first()
-    nombre_asignado = usuario.nombre if usuario else "Desconocido"
-    
-    registrar_actividad(db, idTarea, current_user.idUsuario, "asignó la tarea", f"a {nombre_asignado}")
-    db.commit()
+        if tarea.idMiembroEquipo is not None and tarea.estado != "Done":
+            miembro_previo = db.query(MiembroEquipoModel).filter(MiembroEquipoModel.idMiembroEquipo == tarea.idMiembroEquipo).first()
+            if miembro_previo and miembro_previo.tareasActivas > 0:
+                miembro_previo.tareasActivas -= 1
+
+        tarea.idMiembroEquipo = idMiembroEquipo
+        if tarea.estado == "To Do":
+            tarea.estado = "In Progress"
+        if tarea.estado != "Done":
+            miembro.tareasActivas += 1
+        
+        usuario = db.query(UsuarioModel).filter(UsuarioModel.idUsuario == miembro.idUsuario).first()
+        nombre_asignado = usuario.nombre if usuario else "Desconocido"
+        
+        registrar_actividad(db, idTarea, current_user.idUsuario, "asignó la tarea", f"a {nombre_asignado}")
+        db.commit()
+
     return {"mensaje": "Tarea asignada correctamente"}
 
 # PATCH /tareas/{idTarea}/estado - Cambiar estado (Kanban drag & drop)
